@@ -1,0 +1,54 @@
+name: Process Campaign
+
+# Triggered by the dashboard via the GitHub API's repository_dispatch
+# endpoint, passing campaign_brief / episode_url / platforms in the payload.
+on:
+  repository_dispatch:
+    types: [process_campaign]
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install yt-dlp
+        run: pip install -U yt-dlp
+
+      - name: Install Python dependencies
+        run: pip install -r pipeline/requirements.txt
+
+      - name: Run pipeline
+        env:
+          CAMPAIGN_BRIEF: ${{ github.event.client_payload.campaign_brief }}
+          EPISODE_URL: ${{ github.event.client_payload.episode_url }}
+          PLATFORMS: ${{ github.event.client_payload.platforms }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          YOUTUBE_ACCESS_TOKEN: ${{ secrets.YOUTUBE_ACCESS_TOKEN }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+        run: python pipeline/main.py
+
+      - name: Upload rendered clips as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: clips-${{ github.run_id }}
+          path: /tmp/clipfarm_job/clips/
+
+      - name: Upload manifest as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-${{ github.run_id }}
+          path: /tmp/clipfarm_job/manifest.json

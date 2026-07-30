@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Reel Desk — ClipFarm Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14181A;
+    --surface: #1C2224;
+    --surface-2: #232B2D;
+    --line: #303A3C;
+    --amber: #E8A33D;
+    --amber-dim: #6B5124;
+    --teal: #4FA69C;
+    --danger: #D9614F;
+    --text: #EDEAE3;
+    --text-muted: #8A9290;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .reel-icon { width: 28px; height: 28px; flex-shrink: 0; }
+  h1 {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin: 0;
+  }
+  .tagline { color: var(--text-muted); font-size: 13px; margin: 0 0 32px; font-family: var(--mono); }
+  .counter {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--amber);
+    border: 1px solid var(--amber-dim);
+    padding: 4px 10px;
+    border-radius: 3px;
+    background: rgba(232,163,61,0.06);
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .panel-title {
+    font-family: var(--mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin: 0 0 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .panel-title-row .panel-title { margin-bottom: 0; }
+  .marketplace-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--amber);
+    border: 1px solid var(--amber-dim);
+    border-radius: 3px;
+    padding: 3px 8px;
+    background: rgba(232,163,61,0.06);
+  }
+  .panel-title::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--amber);
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
+  label .opt { color: #5F6866; font-size: 11px; font-weight: 400; }
+  .field-hint {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    margin: -6px 0 20px;
+    padding-bottom: 14px;
+    border-bottom: 1px dashed var(--line);
+  }
+  textarea, input {
+    width: 100%;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 10px 12px;
+    font-family: var(--sans);
+    font-size: 14px;
+    margin-bottom: 16px;
+    resize: vertical;
+  }
+  textarea:focus, input:focus { outline: 2px solid var(--amber); outline-offset: 1px; }
+  textarea { min-height: 90px; }
+
+  .row { display: flex; gap: 16px; }
+  .row > div { flex: 1; }
+
+  .platform-toggles { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .toggle {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 7px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+    transition: border-color .15s, color .15s;
+  }
+  .toggle.active { border-color: var(--amber); color: var(--amber); background: rgba(232,163,61,0.08); }
+
+  button.primary {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    background: var(--amber);
+    color: #1A1400;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 100%;
+  }
+  button.primary:hover { background: #f0b158; }
+  button.primary:disabled { background: var(--amber-dim); color: #7a6432; cursor: not-allowed; }
+  .button-subtext {
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+    margin: 10px 0 0;
+  }
+
+  button.ghost {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--text-muted);
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  button.ghost:hover { border-color: var(--text-muted); color: var(--text); }
+
+  details summary {
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details[open] summary { color: var(--amber); }
+  details .settings-body { padding-top: 14px; }
+
+  .job {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    background: var(--surface);
+  }
+  .job-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .job-brief {
+    font-size: 13px;
+    color: var(--text-muted);
+    max-width: 560px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .job-meta { font-family: var(--mono); font-size: 11px; color: var(--text-muted); }
+
+  /* Signature element: the reel/tape counter strip */
+  .reel-strip { display: flex; align-items: center; gap: 0; margin: 14px 0 6px; }
+  .reel-tick {
+    flex: 1;
+    height: 22px;
+    position: relative;
+    border-bottom: 2px solid var(--line);
+  }
+  .reel-tick .stage-label {
+    position: absolute;
+    bottom: 6px;
+    left: 0;
+    font-family: var(--mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .reel-tick.done { border-bottom-color: var(--teal); }
+  .reel-tick.done .stage-label { color: var(--teal); }
+  .reel-tick.active { border-bottom-color: var(--amber); }
+  .reel-tick.active .stage-label { color: var(--amber); }
+  .reel-tick.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px; right: 0;
+    width: 8px; height: 8px;
+    background: var(--amber);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--amber);
+  }
+
+  .job-actions { display: flex; gap: 8px; margin-top: 14px; }
+  a.link-btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--teal);
+    text-decoration: none;
+    border: 1px solid var(--teal);
+    padding: 6px 12px;
+    border-radius: 4px;
+  }
+  a.link-btn:hover { background: rgba(79,166,156,0.1); }
+
+  .empty {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 13px;
+    border: 1px dashed var(--line);
+    border-radius: 6px;
+  }
+
+  .status-msg {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 10px 12px;
+    border-radius: 4px;
+    margin-bottom: 16px;
+  }
+  .status-msg.error { background: rgba(217,97,79,0.1); color: var(--danger); border: 1px solid var(--danger); }
+  .status-msg.success { background: rgba(79,166,156,0.1); color: var(--teal); border: 1px solid var(--teal); }
+
+  .ready-reminder {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--teal);
+    background: rgba(79,166,156,0.06);
+    border: 1px solid var(--teal);
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin: 10px 0 0;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg class="reel-icon" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" stroke="#E8A33D" stroke-width="1.5"/>
+        <circle cx="12" cy="12" r="2.2" fill="#E8A33D"/>
+        <circle cx="12" cy="5" r="1.6" fill="#E8A33D" opacity="0.6"/>
+        <circle cx="18.5" cy="15.5" r="1.6" fill="#E8A33D" opacity="0.6"/>
+        <circle cx="5.5" cy="15.5" r="1.6" fill="#E8A33D" opacity="0.6"/>
+      </svg>
+      <h1>REEL DESK</h1>
+    </div>
+    <div class="counter" id="jobCounter">00 RUNS</div>
+  </header>
+  <p class="tagline">// paste a campaign, let the AI cut it, walk away</p>
+
+  <div class="panel">
+    <div class="panel-title-row">
+      <p class="panel-title">New Campaign</p>
+      <span class="marketplace-badge">WHOP</span>
+    </div>
+    <p class="field-hint">Copy each box straight from the Whop campaign page — same order, same fields. No summarizing needed.</p>
+    <div id="formStatus"></div>
+
+    <label for="campaignName">Campaign name <span class="opt">(as shown on Whop)</span></label>
+    <input id="campaignName" type="text" placeholder="e.g. Fanatics UGC — $3 per 1,000 views" />
+
+    <div class="row">
+      <div>
+        <label for="rewardRate">Reward rate <span class="opt">($ per 1,000 views)</span></label>
+        <input id="rewardRate" type="text" placeholder="e.g. 2.50" />
+      </div>
+      <div>
+        <label for="minPayout">Minimum payout <span class="opt">($, optional)</span></label>
+        <input id="minPayout" type="text" placeholder="e.g. 6" />
+      </div>
+      <div>
+        <label for="maxPayout">Maximum payout <span class="opt">($, optional)</span></label>
+        <input id="maxPayout" type="text" placeholder="e.g. 3000" />
+      </div>
+    </div>
+
+    <label>Platform selection <span class="opt">(check whatever Whop lists as eligible)</span></label>
+    <div class="platform-toggles">
+      <div class="toggle active" data-platform="tiktok">TikTok</div>
+      <div class="toggle active" data-platform="instagram">Instagram Reels</div>
+      <div class="toggle active" data-platform="youtube">YouTube Shorts</div>
+      <div class="toggle" data-platform="x">X</div>
+    </div>
+
+    <label for="episodeUrl">Episode / source video URL <span class="opt">(the footage you're clipping)</span></label>
+    <input id="episodeUrl" type="text" placeholder="https://youtube.com/watch?v=..." />
+
+    <label for="availableContent">"Available content" <span class="opt">(brand guidelines / Google Doc link — paste the link or the text)</span></label>
+    <textarea id="availableContent" placeholder="Paste the link Whop gives you, or paste the guidelines text directly"></textarea>
+
+    <label for="requirements">"Requirements" <span class="opt">(hashtags, prohibited content, length, required messaging — paste the whole block from Whop)</span></label>
+    <textarea id="requirements" placeholder="e.g. Must include #ourbrand and tag @brandhandle. 20-40 seconds. No reaction-face overlays. Must mention 'free trial' somewhere in the clip."></textarea>
+
+    <details id="settingsBlock">
+      <summary>▸ GitHub connection settings</summary>
+      <div class="settings-body">
+        <div class="row">
+          <div>
+            <label for="ghOwner">GitHub username / org</label>
+            <input id="ghOwner" type="text" placeholder="yourname" />
+          </div>
+          <div>
+            <label for="ghRepo">Repo name</label>
+            <input id="ghRepo" type="text" placeholder="clipfarm" />
+          </div>
+        </div>
+        <label for="ghToken">Personal access token (fine-grained, Actions-only scope — stored only in your browser)</label>
+        <input id="ghToken" type="password" placeholder="github_pat_..." />
+      </div>
+    </details>
+
+    <br/>
+    <button class="primary" id="submitBtn">Auto-Cut This Episode →</button>
+    <p class="button-subtext">AI downloads, transcribes, and cuts the clips for you — you'll see them in the queue below when they're ready.</p>
+  </div>
+
+  <div class="panel">
+    <p class="panel-title">Reel Queue</p>
+    <div id="jobList"></div>
+  </div>
+</div>
+
+<script>
+const STAGES = ['queued', 'downloading', 'transcribing', 'scoring', 'rendering', 'ready'];
+let jobs = [];
+
+async function loadJobs() {
+  try {
+    const result = await window.storage.get('reeldesk:jobs', true);
+    jobs = result ? JSON.parse(result.value) : [];
+  } catch (e) {
+    jobs = [];
+  }
+  renderJobs();
+}
+
+async function saveJobs() {
+  try {
+    await window.storage.set('reeldesk:jobs', JSON.stringify(jobs), true);
+  } catch (e) {
+    console.error('Could not save jobs', e);
+  }
+}
+
+async function loadSettings() {
+  try {
+    const result = await window.storage.get('reeldesk:gh-settings', false);
+    if (result) {
+      const s = JSON.parse(result.value);
+      document.getElementById('ghOwner').value = s.owner || '';
+      document.getElementById('ghRepo').value = s.repo || '';
+      document.getElementById('ghToken').value = s.token || '';
+    }
+  } catch (e) { /* no settings saved yet */ }
+}
+
+async function saveSettings() {
+  const s = {
+    owner: document.getElementById('ghOwner').value.trim(),
+    repo: document.getElementById('ghRepo').value.trim(),
+    token: document.getElementById('ghToken').value.trim(),
+  };
+  try {
+    await window.storage.set('reeldesk:gh-settings', JSON.stringify(s), false);
+  } catch (e) { console.error(e); }
+  return s;
+}
+
+function showStatus(msg, type) {
+  const el = document.getElementById('formStatus');
+  el.innerHTML = `<div class="status-msg ${type}">${msg}</div>`;
+  if (type === 'success') setTimeout(() => { el.innerHTML = ''; }, 6000);
+}
+
+function renderReelStrip(status) {
+  const currentIdx = STAGES.indexOf(status);
+  return `<div class="reel-strip">${STAGES.map((s, i) => {
+    let cls = '';
+    if (i < currentIdx) cls = 'done';
+    else if (i === currentIdx) cls = 'active';
+    return `<div class="reel-tick ${cls}"><span class="stage-label">${s}</span></div>`;
+  }).join('')}</div>`;
+}
+
+function renderJobs() {
+  const list = document.getElementById('jobList');
+  document.getElementById('jobCounter').textContent = String(jobs.length).padStart(2, '0') + ' RUNS';
+
+  if (jobs.length === 0) {
+    list.innerHTML = `<div class="empty">No reels cut yet. Paste a campaign above to start the first one.</div>`;
+    return;
+  }
+
+  list.innerHTML = jobs.slice().reverse().map(job => `
+    <div class="job">
+      <div class="job-head">
+        <div>
+          <div class="job-brief">${escapeHtml(job.campaignName || 'Untitled campaign')}</div>
+          <div class="job-meta">${escapeHtml(job.episodeUrl)}</div>
+        </div>
+        <div class="job-meta">${new Date(job.createdAt).toLocaleString()}</div>
+      </div>
+      ${renderReelStrip(job.status)}
+      ${job.status === 'ready' ? `<p class="ready-reminder">✓ Once you post this, paste the live URL into Whop's submission form to start payout tracking — check the clip's native view count against Whop's dashboard occasionally, they can drift.</p>` : ''}
+      <div class="job-actions">
+        <a class="link-btn" href="${job.actionsUrl}" target="_blank" rel="noopener">View run on GitHub →</a>
+        <button class="ghost" onclick="markReady('${job.id}')">Mark ready</button>
+        <button class="ghost" onclick="removeJob('${job.id}')">Remove</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+window.markReady = async function(id) {
+  const job = jobs.find(j => j.id === id);
+  if (job) job.status = 'ready';
+  await saveJobs();
+  renderJobs();
+};
+
+window.removeJob = async function(id) {
+  jobs = jobs.filter(j => j.id !== id);
+  await saveJobs();
+  renderJobs();
+};
+
+document.querySelectorAll('.toggle').forEach(t => {
+  t.addEventListener('click', () => t.classList.toggle('active'));
+});
+
+function composeBrief(fields) {
+  const lines = [];
+  if (fields.campaignName) lines.push(`Campaign: ${fields.campaignName}`);
+  if (fields.rewardRate) lines.push(`Reward rate: $${fields.rewardRate} per 1,000 views`);
+  if (fields.minPayout) lines.push(`Minimum payout: $${fields.minPayout}`);
+  if (fields.maxPayout) lines.push(`Maximum payout: $${fields.maxPayout}`);
+  if (fields.platforms.length) lines.push(`Eligible platforms: ${fields.platforms.join(', ')}`);
+  if (fields.availableContent) lines.push(`\nAvailable content / brand guidelines:\n${fields.availableContent}`);
+  if (fields.requirements) lines.push(`\nRequirements (must follow exactly):\n${fields.requirements}`);
+  return lines.join('\n');
+}
+
+document.getElementById('submitBtn').addEventListener('click', async () => {
+  const campaignName = document.getElementById('campaignName').value.trim();
+  const rewardRate = document.getElementById('rewardRate').value.trim();
+  const minPayout = document.getElementById('minPayout').value.trim();
+  const maxPayout = document.getElementById('maxPayout').value.trim();
+  const availableContent = document.getElementById('availableContent').value.trim();
+  const requirements = document.getElementById('requirements').value.trim();
+  const episodeUrl = document.getElementById('episodeUrl').value.trim();
+  const platforms = Array.from(document.querySelectorAll('.toggle.active')).map(t => t.dataset.platform);
+
+  if (!episodeUrl || !requirements) {
+    showStatus('At minimum, add the episode URL and the "Requirements" block from Whop.', 'error');
+    return;
+  }
+
+  const brief = composeBrief({ campaignName, rewardRate, minPayout, maxPayout, platforms, availableContent, requirements });
+
+  const settings = await saveSettings();
+  if (!settings.owner || !settings.repo || !settings.token) {
+    showStatus('Add your GitHub connection settings below (owner, repo, token) before cutting a reel.', 'error');
+    document.getElementById('settingsBlock').open = true;
+    return;
+  }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Sending to AI...';
+
+  const job = {
+    id: 'job_' + Date.now(),
+    brief, episodeUrl, platforms,
+    campaignName: campaignName || '(untitled campaign)',
+    status: 'queued',
+    createdAt: Date.now(),
+    actionsUrl: `https://github.com/${settings.owner}/${settings.repo}/actions`,
+  };
+
+  try {
+    const resp = await fetch(`https://api.github.com/repos/${settings.owner}/${settings.repo}/dispatches`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `token ${settings.token}`,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        event_type: 'process_campaign',
+        client_payload: {
+          campaign_brief: brief,
+          episode_url: episodeUrl,
+          platforms: platforms.join(','),
+        },
+      }),
+    });
+
+    if (resp.status === 204) {
+      job.status = 'downloading';
+      jobs.push(job);
+      await saveJobs();
+      renderJobs();
+      showStatus('Reel dispatched — check the GitHub Actions tab for live progress.', 'success');
+      ['campaignName','rewardRate','minPayout','maxPayout','availableContent','requirements','episodeUrl'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+    } else {
+      const body = await resp.text();
+      showStatus(`GitHub rejected the request (${resp.status}). Check your token/owner/repo. ${escapeHtml(body.slice(0,200))}`, 'error');
+    }
+  } catch (e) {
+    showStatus('Could not reach GitHub — check your connection and token.', 'error');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Auto-Cut This Episode →';
+});
+
+loadJobs();
+loadSettings();
+</script>
+</body>
+</html>
