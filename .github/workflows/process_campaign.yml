@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 300
     env:
-      CLIPFARM_WORKDIR: ${{ runner.temp }}/clipfarm-${{ github.run_id }}
+      CLIPFARM_WORKDIR: /tmp/clipfarm-${{ github.run_id }}
       CLIPFARM_CAMPAIGN_JSON: ${{ inputs.campaign_json }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GEMINI_MODEL: gemini-2.5-flash
