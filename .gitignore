@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+.env
+.env.*
+!.env.example
+.venv/
+.netlify/
+.vercel/
+work/
+clipfarm-job/
+source.*
+transcript.json
+moments.json
+results/
+node_modules/
+dist/

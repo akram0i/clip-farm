@@ -1,82 +1,191 @@
-# ClipFarm Pipeline
+# ClipFarm
 
-Turns a pasted campaign brief + episode link into rendered, captioned,
-vertical clips scored for virality — automatically. This is the "engine
-room" that the dashboard (built separately, next step) triggers.
+ClipFarm turns a long-form episode and a structured Whop campaign brief into ranked, vertical, captioned clips. Members sign in, submit campaigns, follow their own run history, download results, and submit weekly earnings screenshots. Administrators get a separate team-activity, screenshot-review, commission, and payment view.
 
-## What this does, end to end
+The current architecture is fully separated:
 
-1. Downloads the episode (`yt-dlp`)
-2. Transcribes it locally (`faster-whisper`, free, no account)
-3. Sends the transcript + your campaign brief to Gemini (free tier),
-   which returns 5-15 scored clip candidates structured around the
-   Hook / Context / Payoff / Loop framework
-4. Renders each one: 9:16 crop, burned-in bold captions, 20-35s length
-5. (Optional, once configured) auto-publishes to YouTube Shorts and
-   Instagram Reels via their official free APIs
-6. Everything lands as downloadable GitHub Actions artifacts either way
+```text
+clipfarm/
+├── dashboard/                 # Vite member/admin application
+├── supabase/
+│   ├── migrations/            # tables, functions, RLS, storage policies
+│   └── functions/             # start, callback, protected result download
+├── pipeline/                  # yt-dlp → Whisper → Gemini → FFmpeg
+├── .github/workflows/         # processing, validation, Pages fallback
+├── contracts/                 # versioned dispatch/status/result contracts
+├── architecture/              # backend and security explanation
+├── scripts/validate_structure.py
+└── tests/
+```
+
+## What is implemented
+
+- Supabase email/password authentication; the application is inaccessible anonymously.
+- Per-user campaign rows and histories stored in PostgreSQL, not inferred from GitHub.
+- RLS ownership policies for campaigns, events, outputs, earnings, commissions, and private files.
+- A server-authorized admin view with per-user total, pending, complete, and failed counts.
+- A private earnings-screenshot queue with member/timestamp attribution and signed image access.
+- A rolling 168-hour earnings cycle beginning at signup.
+- Dismissible, server-capped reminders during days 1–6.
+- Full member-data lockout at the deadline, with screenshot upload left available.
+- Immediate same-session unlock on successful upload; admin review is intentionally asynchronous.
+- Admin-entered confirmed earnings, snapshotted commission rates, owed totals, and append-only payments.
+- Central server-side GitHub dispatch and result-download functions. No member sees or supplies GitHub settings.
+- The complete unattended video pipeline and signed status callbacks.
+- Deterministic checks for clip duration, required hashtags/messaging, source bounds, and caption provenance.
+
+See [the Supabase architecture](architecture/SUPABASE_BACKEND.md) for the security and data model.
+
+## Intentional boundaries and tradeoffs
+
+- Posting to TikTok, Instagram, YouTube, and submission to Whop remain manual.
+- ClipFarm does not browse or scrape Whop and does not automate social-platform logins.
+- Screenshot review is a trust-and-friction mechanism, not fraud-proof verification; images can be edited.
+- GitHub Actions remains the compute worker. Running Whisper and FFmpeg inside Vercel or Supabase Functions would be unreliable and exceed normal serverless limits.
+- The direct Supabase + Vercel implementation replaces the brief's Lovable-specific wrapper while preserving the requested Supabase Auth/database behavior. It keeps the code deployable and auditable in this repository.
+- The `$0` goal is practical for a small team, not an unlimited guarantee. GitHub artifact storage, Supabase database/storage/egress, Vercel bandwidth, and Gemini quotas all have free-tier limits.
+- Natural-language brand-policy enforcement still relies partly on Gemini judgment. Human review before posting remains necessary.
 
 ## One-time setup
 
-### 1. Make this repo public on GitHub
-Public repos get **unlimited free GitHub Actions minutes**. Private repos
-are capped at 2,000 min/month, which this pipeline will burn through fast
-at real volume. Nothing sensitive lives in the code — all keys go in
-Secrets below, which stay encrypted even in a public repo.
+### 1. Create the public GitHub repository
 
-### 2. Add these as GitHub Secrets
-(Repo → Settings → Secrets and variables → Actions → New repository secret)
+Push this entire directory. The hidden `.github/workflows/` directory is required. Keep the repository public if free public-repository Actions usage is a hard requirement.
 
-| Secret name | Where to get it |
+Add these repository secrets under **Settings → Secrets and variables → Actions**:
+
+| Secret | Purpose |
 |---|---|
-| `GEMINI_API_KEY` | ai.google.dev → Get API key (free) |
-| `YOUTUBE_ACCESS_TOKEN` / `YOUTUBE_REFRESH_TOKEN` / `YOUTUBE_CLIENT_ID` / `YOUTUBE_CLIENT_SECRET` | Google Cloud Console → enable YouTube Data API v3 → OAuth credentials (one-time consent flow, I'll walk you through this) |
-| `IG_USER_ID` / `IG_ACCESS_TOKEN` | Meta Developer app → Instagram Graph API → add your account as a Tester (see earlier setup steps) |
+| `GEMINI_API_KEY` | Structured clip selection |
+| `CLIPFARM_CALLBACK_URL` | `https://YOUR_PROJECT.supabase.co/functions/v1/run-callback` |
+| `CLIPFARM_CALLBACK_SECRET` | Long random HMAC secret shared with the callback function |
 
-Skip the YouTube/IG secrets for now if you just want clips downloadable —
-the pipeline still runs and produces clips, it just won't auto-post.
+The workflow uses only read access to repository contents. It downloads, transcribes, selects, renders, and uploads the result ZIP as a seven-day GitHub artifact.
 
-### 3. Trigger a run
-This repo listens for a `repository_dispatch` event. The dashboard (next
-build step) does this automatically, but you can test it manually right
-now with:
+### 2. Create and migrate Supabase
+
+Install the current Supabase CLI, sign in, and run from the repository root:
 
 ```bash
-curl -X POST \
-  -H "Authorization: token YOUR_GITHUB_PERSONAL_ACCESS_TOKEN" \
-  -H "Accept: application/vnd.github+json" \
-  https://api.github.com/repos/YOUR_USERNAME/YOUR_REPO/dispatches \
-  -d '{
-    "event_type": "process_campaign",
-    "client_payload": {
-      "campaign_brief": "Paste the Whop campaign rules here",
-      "episode_url": "https://youtube.com/watch?v=...",
-      "platforms": "youtube,instagram"
-    }
-  }'
+supabase link --project-ref YOUR_PROJECT_REF
+supabase db push
+supabase functions deploy start-campaign
+supabase functions deploy run-callback --no-verify-jwt
+supabase functions deploy download-results
 ```
 
-Use a **fine-grained personal access token** scoped only to this repo's
-Actions — never a broad token, and never paste it anywhere but GitHub
-Secrets or your own local terminal.
+The migrations create the private screenshot bucket, so do not make it public in the dashboard.
 
-### 4. Get your results
-Go to the repo's **Actions** tab → the running workflow → download the
-`clips-*` and `manifest-*` artifacts once it finishes. `manifest.json`
-lists every clip with its virality score, hook strength, loop potential,
-and suggested caption/hashtags — sorted best-first.
+Configure Edge Function secrets:
 
-## What's NOT automated (by design)
+```bash
+supabase secrets set \
+  GITHUB_OWNER=your-owner \
+  GITHUB_REPO=your-public-repository \
+  GITHUB_REF=main \
+  GITHUB_TOKEN=your-server-side-token \
+  CLIPFARM_CALLBACK_SECRET=the-same-random-secret
+```
 
-- **Browsing/picking Whop campaigns** — no public API exists for this;
-  stays a fast manual step.
-- **Submitting the finished post URL to Whop for payout** — same reason,
-  no submission API. ~30 seconds per approved clip.
-- **TikTok posting** — automatable once your Content Posting API audit
-  clears; until then, download the clip from the artifact and upload
-  manually.
+Use a fine-grained GitHub token scoped only to this repository with **Actions: read and write**. It stays in Supabase server configuration and is never sent to a member browser.
 
-## Next step
-The dashboard (Lovable) that replaces the manual `curl` command with a
-one-click form, and shows you a review queue of finished clips with
-post/download buttons.
+After the owner signs up, promote that one profile in the Supabase SQL editor:
+
+```sql
+update public.profiles
+set role = 'admin'
+where id = (select id from auth.users where email = 'OWNER_EMAIL');
+```
+
+All other signups remain members. If open signup is not appropriate for the team, disable it after creating the intended accounts.
+
+### 3. Deploy the dashboard
+
+From `dashboard/`:
+
+```bash
+npm install
+npm test
+npm run build
+vercel link
+vercel env add VITE_SUPABASE_URL production,preview,development
+vercel env add VITE_SUPABASE_PUBLISHABLE_KEY production,preview,development
+vercel deploy --prod
+```
+
+The `VITE_` values are intentionally public configuration. Never put a Supabase secret/service-role key or GitHub token in a `VITE_` variable.
+
+For local development, copy `.env.example` to `.env.local`, add the project URL and publishable key, then run `npm run dev`.
+
+## Daily member flow
+
+1. Sign in.
+2. Paste each Whop campaign field without summarizing it.
+3. Select platforms and click **Build my clips**.
+4. Follow the personal run row through queued, processing, ready, or failed.
+5. Download the ready ZIP from the dashboard. The protected function verifies ownership and obtains a short-lived artifact URL using the central token.
+6. Review and post manually, then submit the post URL to Whop manually.
+7. Submit an earnings screenshot before the rolling deadline.
+
+The ZIP contains:
+
+```text
+clips/clip-01.mp4
+clips/clip-02.mp4
+...
+manifest.json
+status.json
+```
+
+Each clip includes virality, hook, and loop scores; source transcript; native-caption copy; suggested hashtags; and campaign-compliance evidence. Videos are rendered at 1080×1920 with burned-in captions.
+
+## Admin flow
+
+The **Admin** navigation is rendered only for admin profiles, and database authorization independently rejects member access.
+
+- Review per-person campaign totals and states.
+- Set each member's agreed commission percentage.
+- Open pending screenshots through five-minute signed URLs.
+- Enter confirmed earnings manually; ClipFarm calculates the commission at the snapshotted rate.
+- Record partial or full payments. The database prevents payments above outstanding commission.
+
+Confirmed earnings should be the new earnings for that screenshot's reporting interval. If the screenshot shows a lifetime account total, enter only the increase since the previous reviewed screenshot to avoid charging commission twice.
+
+## Pipeline enforcement
+
+- Default target: 20–35 seconds; absolute accepted range: 15–45 seconds.
+- A pasted explicit length range overrides the target only within those hard bounds.
+- Candidates outside the transcript or permitted duration are rejected.
+- Hook text must exist inside the chosen source window.
+- Burned captions come from local Whisper timestamps, not Gemini-generated speech.
+- Required hashtags are appended when the model omits them.
+- Quoted required messaging is checked against the source transcript.
+- Gemini must mark each selection compliant and provide evidence before rendering.
+
+## Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| Sign-in works but no profile loads | Confirm the `on_auth_user_created` trigger and migration history |
+| Member sees no rows before day seven | Check RLS grants, `earnings_cycle_started_at`, and `get_access_status()` |
+| Campaign becomes failed at dispatch | Configure the five Edge Function GitHub/callback secrets |
+| GitHub workflow is missing | Confirm `.github/workflows/process_campaign.yml` exists on the default branch |
+| Download fails | Artifact may have expired after seven days, or the central GitHub token lacks Actions read access |
+| Screenshot upload fails | Use JPEG/PNG/WebP under 10 MiB; keep `earnings-screenshots` private |
+| Admin review says rate is missing | Set the member's commission percentage in the Team overview first |
+| Download/transcription/render stage fails | Open the stored failure message; verify the public URL, audio, Gemini quota, and source codec |
+
+## Verification
+
+Run from the repository root:
+
+```bash
+python3 scripts/validate_structure.py
+python3 -m compileall -q pipeline scripts tests
+python3 -m unittest discover -s tests -v
+cd dashboard
+npm test
+npm run build
+```
+
+After schema changes, also run Supabase security and performance advisors and test with separate member/admin sessions. Do not consider frontend route hiding a substitute for RLS verification.

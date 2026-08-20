@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clipfarm.local/contracts/manifest.schema.json",
+  "title": "ClipFarm result manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id", "status", "generated_at", "campaign", "constraints", "clip_count", "clips"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "run_id": { "type": "string", "format": "uuid" },
+    "status": { "const": "ready" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "campaign": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "name", "platforms", "requested_by"],
+      "properties": {
+        "run_id": { "type": "string", "format": "uuid" },
+        "name": { "type": "string" },
+        "platforms": { "type": "array", "items": { "type": "string" } },
+        "requested_by": { "type": "string" }
+      }
+    },
+    "constraints": { "type": "object" },
+    "clip_count": { "type": "integer", "minimum": 1, "maximum": 15 },
+    "clips": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 15,
+      "items": {
+        "type": "object",
+        "required": [
+          "rank", "file", "duration_seconds", "hook_text", "virality_score",
+          "hook_strength", "loop_potential", "suggested_caption", "suggested_hashtags",
+          "compliance"
+        ],
+        "properties": {
+          "rank": { "type": "integer", "minimum": 1, "maximum": 15 },
+          "file": { "type": "string" },
+          "start_seconds": { "type": "number", "minimum": 0 },
+          "end_seconds": { "type": "number", "exclusiveMinimum": 0 },
+          "duration_seconds": { "type": "number", "minimum": 15, "maximum": 45 },
+          "hook_text": { "type": "string" },
+          "virality_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "hook_strength": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "loop_potential": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "selection_reason": { "type": "string" },
+          "source_transcript": { "type": "string" },
+          "suggested_caption": { "type": "string" },
+          "suggested_hashtags": { "type": "array", "items": { "type": "string" } },
+          "compliance": { "type": "object" }
+        }
+      }
+    }
+  }
+}

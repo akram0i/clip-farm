@@ -1,0 +1,84 @@
+name: Process campaign
+run-name: ClipFarm · ${{ fromJSON(inputs.campaign_json).campaign_name }} · ${{ fromJSON(inputs.campaign_json).requested_by || github.actor }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      campaign_json:
+        description: JSON campaign payload sent by the ClipFarm dashboard
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clipfarm-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  process:
+    name: Build clips
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      CLIPFARM_WORKDIR: ${{ runner.temp }}/clipfarm-${{ github.run_id }}
+      CLIPFARM_CAMPAIGN_JSON: ${{ inputs.campaign_json }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_MODEL: gemini-2.5-flash
+      WHISPER_MODEL: small
+      CLIPFARM_CALLBACK_URL: ${{ secrets.CLIPFARM_CALLBACK_URL }}
+      CLIPFARM_CALLBACK_SECRET: ${{ secrets.CLIPFARM_CALLBACK_SECRET }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      - name: Install FFmpeg and fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ffmpeg fonts-dejavu-core
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r pipeline/requirements.txt
+
+      - name: Validate repository structure
+        run: python scripts/validate_structure.py
+
+      - name: Prepare campaign
+        run: python -m pipeline.main prepare
+
+      - name: Download source
+        run: python -m pipeline.main download
+
+      - name: Transcribe locally
+        run: python -m pipeline.main transcribe
+
+      - name: Select compliant moments
+        run: python -m pipeline.main select
+
+      - name: Render captioned clips
+        run: python -m pipeline.main render
+
+      - name: Write run summary
+        if: always()
+        run: python -m pipeline.main summarize
+
+      - name: Upload clips, manifest, or failure diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clipfarm-results-${{ github.run_id }}
+          path: ${{ env.CLIPFARM_WORKDIR }}/results/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0

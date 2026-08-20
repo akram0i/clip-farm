@@ -1,0 +1,5 @@
+# Runtime dependencies. Upper bounds avoid surprise breaking major releases.
+faster-whisper>=1.1,<2
+google-genai>=1.0,<2
+pydantic>=2.8,<3
+yt-dlp>=2025.1

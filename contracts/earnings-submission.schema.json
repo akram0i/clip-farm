@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clipfarm.local/contracts/earnings-submission.schema.json",
+  "title": "ClipFarm finalized earnings submission",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "submission_id",
+    "submitted_at",
+    "unlocked",
+    "next_lock_at"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "submission_id": { "type": "string", "format": "uuid" },
+    "submitted_at": { "type": "string", "format": "date-time" },
+    "unlocked": { "const": true },
+    "next_lock_at": { "type": "string", "format": "date-time" }
+  }
+}

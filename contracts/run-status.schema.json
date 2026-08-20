@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clipfarm.local/contracts/run-status.schema.json",
+  "title": "ClipFarm run status callback",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id", "stage", "state", "message", "updated_at"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "run_id": { "type": "string", "format": "uuid" },
+    "stage": {
+      "enum": ["queued", "downloading", "transcribing", "selecting", "rendering", "ready", "failed"]
+    },
+    "state": { "enum": ["running", "complete", "failed"] },
+    "message": { "type": "string", "minLength": 1, "maxLength": 1000 },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "github_run_id": { "type": "integer", "minimum": 1 },
+    "github_run_url": { "type": "string", "format": "uri", "pattern": "^https://" },
+    "output_url": { "type": "string", "format": "uri", "pattern": "^https://" }
+  }
+}

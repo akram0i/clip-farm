@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clipfarm.local/contracts/earnings-review.schema.json",
+  "title": "ClipFarm admin earnings review request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "submission_id", "confirmed_earnings"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "submission_id": { "type": "string", "format": "uuid" },
+    "confirmed_earnings": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 999999999999.99,
+      "description": "New earnings for this submission's reporting interval, not a lifetime cumulative total."
+    },
+    "review_notes": {
+      "type": ["string", "null"],
+      "maxLength": 2000
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clipfarm.local/contracts/earnings-access.schema.json",
+  "title": "ClipFarm earnings access status",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "user_id",
+    "display_name",
+    "role",
+    "is_locked",
+    "cycle_started_at",
+    "deadline_at",
+    "last_submission_at",
+    "cycle_day",
+    "reminder_due",
+    "server_time"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "user_id": { "type": "string", "format": "uuid" },
+    "display_name": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "role": { "enum": ["member", "admin"] },
+    "is_locked": { "type": "boolean" },
+    "cycle_started_at": { "type": "string", "format": "date-time" },
+    "deadline_at": { "type": "string", "format": "date-time" },
+    "last_submission_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "cycle_day": { "type": "integer", "minimum": 1, "maximum": 7 },
+    "reminder_due": { "type": "boolean" },
+    "server_time": { "type": "string", "format": "date-time" }
+  }
+}
