@@ -25,7 +25,7 @@ jobs:
       CLIPFARM_WORKDIR: /tmp/clipfarm-${{ github.run_id }}
       CLIPFARM_CAMPAIGN_JSON: ${{ inputs.campaign_json }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      GEMINI_MODEL: gemini-2.5-flash
+      GEMINI_MODEL: gemini-3.6-flash
       WHISPER_MODEL: small
       CLIPFARM_CALLBACK_URL: ${{ secrets.CLIPFARM_CALLBACK_URL }}
       CLIPFARM_CALLBACK_SECRET: ${{ secrets.CLIPFARM_CALLBACK_SECRET }}

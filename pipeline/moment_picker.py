@@ -93,7 +93,7 @@ TIMESTAMPED TRANSCRIPT
 {transcript_text}
 """
 
-    model_name = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip()
+    model_name = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash").strip()
     client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=180_000))
     response = None
     last_error: Exception | None = None
@@ -106,7 +106,11 @@ TIMESTAMPED TRANSCRIPT
                     system_instruction=SYSTEM_PROMPT,
                     response_mime_type="application/json",
                     response_schema=CandidateBatch,
-                    temperature=0.25,
+                    # Note: temperature/top_p/top_k are deprecated starting
+                    # with the 3.6 generation -- silently ignored today, but
+                    # Google has stated future models will reject them with
+                    # an HTTP 400. Determinism is steered via the system
+                    # instruction instead, not a sampling parameter.
                 ),
             )
             break
