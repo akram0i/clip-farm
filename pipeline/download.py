@@ -41,6 +41,8 @@ def download_episode(url: str, workdir: Path) -> Path:
             "5",
             "--socket-timeout",
             "60",
+            "--user-agent",
+            "ClipFarm/1.0 (+https://github.com/akram0i/clip-farm) yt-dlp",
             "-f",
             "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
             "--merge-output-format",
