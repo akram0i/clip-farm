@@ -1,19 +1,38 @@
-"""Download one source episode with yt-dlp.
+"""Download one source episode.
 
-YouTube increasingly challenges requests from cloud/datacenter IP ranges
-(including GitHub Actions runners) with a "Sign in to confirm you're not
-a bot" error. This is unrelated to the specific video and isn't something
-retrying the same request fixes. yt-dlp maintains a set of alternate
-"player clients" (tv, mweb, ios, etc.) that fetch video info through
-different, less aggressively gated endpoints -- we try them in sequence
-until one works, rather than failing on the very first block.
+Source URLs fall into a few categories that each need different handling:
+
+1. Video platforms (YouTube, Vimeo, etc.) -- yt-dlp's dedicated extractors,
+   with player-client fallbacks since YouTube increasingly challenges
+   requests from cloud/datacenter IP ranges (including GitHub Actions
+   runners) with a "Sign in to confirm you're not a bot" error. This is
+   unrelated to the specific video and isn't something retrying the same
+   request fixes -- yt-dlp maintains alternate "player clients" (tv,
+   mweb, ios, etc.) that fetch video info through different, less
+   aggressively gated endpoints, tried in sequence.
+2. Google Drive share links -- these need a dedicated confirmation-token
+   handshake for any file large enough to trigger Drive's "can't scan
+   this file for viruses" interstitial. A plain GET or yt-dlp's generic
+   extractor gets that HTML page back instead of the file.
+3. Dropbox share links -- normalized to their direct-download form
+   (dl=1) before download.
+4. Plain direct file links (a raw .mp4/.mov/.ogv URL, or a link from an
+   file host that has no click-through/JS gate) -- yt-dlp's generic
+   extractor handles these well as-is.
+
+What's explicitly NOT handled: services that require a JS-rendered
+click-through with no documented API (e.g. WeTransfer). Those need a
+different link from the campaign (Drive/Dropbox/a raw file URL) --
+there's no free, reliable way to automate a click-through flow.
 """
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 from .errors import ClipFarmError
 
@@ -21,8 +40,100 @@ from .errors import ClipFarmError
 # "default" (no override) goes first since it's fastest when it works.
 _PLAYER_CLIENT_FALLBACKS = [None, "tv", "mweb", "ios"]
 
+_USER_AGENT = "ClipFarm/1.0 (+https://github.com/akram0i/clip-farm) yt-dlp"
+
+_GOOGLE_DRIVE_ID_PATTERNS = [
+    re.compile(r"drive\.google\.com/file/d/([a-zA-Z0-9_-]+)"),
+    re.compile(r"drive\.google\.com/open\?id=([a-zA-Z0-9_-]+)"),
+    re.compile(r"drive\.google\.com/uc\?.*[?&]id=([a-zA-Z0-9_-]+)"),
+    re.compile(r"docs\.google\.com/uc\?.*[?&]id=([a-zA-Z0-9_-]+)"),
+]
+
+
+def _google_drive_file_id(url: str) -> str | None:
+    for pattern in _GOOGLE_DRIVE_ID_PATTERNS:
+        match = pattern.search(url)
+        if match:
+            return match.group(1)
+    return None
+
+
+def _normalize_dropbox_url(url: str) -> str:
+    parsed = urlparse(url)
+    if "dropbox.com" not in parsed.netloc:
+        return url
+    # A Dropbox share link previews in-browser unless dl=1 is set.
+    if "dl=1" in parsed.query:
+        return url
+    query = parse_qs(parsed.query)
+    query.pop("dl", None)
+    rebuilt = parsed._replace(query="&".join(f"{k}={v[0]}" for k, v in query.items()))
+    separator = "&" if rebuilt.query else "?"
+    return f"{rebuilt.geturl()}{separator}dl=1"
+
+
+def _download_from_google_drive(file_id: str, workdir: Path) -> Path:
+    """Handles Drive's virus-scan confirmation interstitial for larger
+    files -- a plain GET on the share link returns that HTML warning page
+    instead of the actual file unless the confirmation token is replayed."""
+    try:
+        import requests
+    except ImportError as exc:
+        raise ClipFarmError("download", "the requests library is not installed") from exc
+
+    session = requests.Session()
+    session.headers.update({"User-Agent": _USER_AGENT})
+    base_url = "https://drive.google.com/uc"
+
+    try:
+        response = session.get(base_url, params={"id": file_id, "export": "download"}, stream=True, timeout=60)
+        token = None
+        for key, value in response.cookies.items():
+            if key.startswith("download_warning"):
+                token = value
+        if token is None and "text/html" in response.headers.get("content-type", ""):
+            match = re.search(r"confirm=([0-9A-Za-z_-]+)", response.text)
+            if match:
+                token = match.group(1)
+        if token:
+            response = session.get(
+                base_url,
+                params={"id": file_id, "export": "download", "confirm": token},
+                stream=True,
+                timeout=60,
+            )
+
+        content_type = response.headers.get("content-type", "")
+        if "text/html" in content_type:
+            raise ClipFarmError(
+                "download",
+                "Google Drive returned a page instead of a file",
+                "Confirm the Drive link's sharing setting is \"Anyone with the link\" and that it points at a single file, not a folder.",
+            )
+
+        destination = workdir / "source.mp4"
+        with open(destination, "wb") as handle:
+            for chunk in response.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    handle.write(chunk)
+    except requests.RequestException as exc:
+        raise ClipFarmError("download", f"Google Drive download failed: {exc}") from exc
+
+    if not destination.exists() or destination.stat().st_size < 100_000:
+        raise ClipFarmError("download", "downloaded source file is unexpectedly small")
+    return destination.resolve()
+
 
 def download_episode(url: str, workdir: Path) -> Path:
+    drive_file_id = _google_drive_file_id(url)
+    if drive_file_id:
+        return _download_from_google_drive(drive_file_id, workdir)
+
+    url = _normalize_dropbox_url(url)
+    return _download_via_yt_dlp(url, workdir)
+
+
+def _download_via_yt_dlp(url: str, workdir: Path) -> Path:
     if not shutil.which("yt-dlp"):
         raise ClipFarmError("download", "yt-dlp is not installed")
 
@@ -42,7 +153,7 @@ def download_episode(url: str, workdir: Path) -> Path:
             "--socket-timeout",
             "60",
             "--user-agent",
-            "ClipFarm/1.0 (+https://github.com/akram0i/clip-farm) yt-dlp",
+            _USER_AGENT,
             "-f",
             "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
             "--merge-output-format",
