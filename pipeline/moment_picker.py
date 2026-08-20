@@ -117,7 +117,7 @@ TIMESTAMPED TRANSCRIPT
     if response is None:
         raise ClipFarmError(
             "selection",
-            f"Gemini failed after 3 attempts ({type(last_error).__name__})",
+            f"Gemini failed after 3 attempts ({type(last_error).__name__}: {last_error})",
             "Check the API key, free-tier quota, and model availability, then retry.",
         ) from last_error
 
