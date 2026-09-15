@@ -12,10 +12,13 @@ ClipFarm combines a multi-user dashboard, a PostgreSQL data model, and a staged 
 
 - [Architecture and authorization](architecture/SUPABASE_BACKEND.md): data ownership, row-level policies, and server-side operations.
 - [Engineering walkthrough](architecture/ENGINEERING.md): design decisions, verification, and known limitations.
+- [Source completeness](architecture/SOURCE_STATUS.md): what is reproducible here and what still needs recovery.
 - [Security and privacy](SECURITY.md): secret handling and the boundary between a public portfolio and a private worker.
 - [Setup](#one-time-setup): configure your own services without committing credentials.
 
 This repository is a source-code portfolio. It does not include production accounts, sample passwords, private earnings screenshots, or access to the deployed team's workspace. Features below describe the code in this repository; they are not a claim that every external service is currently configured or that every source-video provider is supported.
+
+**Source status:** the core application is checked in, but this is not yet a complete copy of the latest hosted dashboard. Invite registration, admin account removal, the full admin screenshot-rule exemption, and the review-status follow-up are not integrated here. See the [recovery checklist](architecture/SOURCE_STATUS.md) before deploying or evaluating those features.
 
 ```mermaid
 flowchart LR
@@ -30,7 +33,7 @@ flowchart LR
     I --> C
 ```
 
-The current architecture is fully separated:
+The repository separates the application into:
 
 ```text
 clipfarm/
@@ -111,13 +114,13 @@ Configure Edge Function secrets:
 ```bash
 supabase secrets set \
   GITHUB_OWNER=your-owner \
-  GITHUB_REPO=your-public-repository \
+  GITHUB_REPO=your-private-processing-repository \
   GITHUB_REF=main \
   GITHUB_TOKEN=your-server-side-token \
   CLIPFARM_CALLBACK_SECRET=the-same-random-secret
 ```
 
-Use a fine-grained GitHub token scoped only to this repository with **Actions: read and write**. It stays in Supabase server configuration and is never sent to a member browser.
+Use a fine-grained GitHub token scoped only to the private processing repository with **Actions: read and write**. It stays in Supabase server configuration and is never sent to a member browser.
 
 After the owner signs up, promote that one profile in the Supabase SQL editor:
 
@@ -127,7 +130,7 @@ set role = 'admin'
 where id = (select id from auth.users where email = 'OWNER_EMAIL');
 ```
 
-All other signups remain members. If open signup is not appropriate for the team, disable it after creating the intended accounts.
+All other signups remain members. This source snapshot uses standard email/password signup, not invitation codes. Configure confirmation email delivery and signup policy before allowing real users; do not disable email verification to work around delivery limits. Invite-only registration from the hosted application still needs its matching database migration and UI recovered.
 
 ### 3. Deploy the dashboard
 
@@ -203,6 +206,7 @@ Confirmed earnings should be the new earnings for that screenshot's reporting in
 | Download fails | Artifact may have expired after seven days, or the central GitHub token lacks Actions read access |
 | Screenshot upload fails | Use JPEG/PNG/WebP under 10 MiB; keep `earnings-screenshots` private |
 | Admin review says rate is missing | Set the member's commission percentage in the Team overview first |
+| Team overview still says pending after accepting a screenshot | Its pending column counts campaigns, not screenshot reviews; separate earnings-review totals are not yet integrated in this snapshot |
 | Download/transcription/render stage fails | Open the stored failure message; verify the public URL, audio, Gemini quota, and source codec |
 
 ## Verification

@@ -44,7 +44,7 @@ These checks do not replace a configured integration test. A full run also needs
 - AI selection can reject all candidates; it should report a failure rather than invent compliant footage.
 - Posting to social platforms and submitting payout claims remain manual.
 - Earnings are reviewed by a human; the application is not a fraud detection or payment processing service.
-- The hosted application may contain changes not yet synchronized to this source snapshot. Review code and migration history when reproducing a deployment.
+- The hosted application contains follow-up work not integrated into this source snapshot. The [source completeness checklist](SOURCE_STATUS.md) identifies the missing features and the verification required before claiming deployment parity.
 
 ## Portfolio review
 

@@ -4,7 +4,7 @@ ClipFarm is an authenticated multi-user application. Vercel serves the Vite dash
 
 ## Trust boundaries
 
-- The browser receives only a Supabase publishable key. It never receives a Supabase secret key, GitHub token, callback secret, user role, or centrally configured repository setting.
+- The browser receives the Supabase URL, publishable key, its authenticated session, and authorized data, including its display role. It never receives a Supabase secret key, GitHub token, callback secret, or centrally configured repository setting. A displayed role is not an authorization credential.
 - Supabase Auth establishes identity. Authorization uses `public.profiles.role` and RLS; editable user metadata is never used for permissions.
 - Members can query only their own active-cycle rows. When the seven-day deadline passes, RLS blocks their profile, campaigns, outputs, events, earnings records, and commission account.
 - Admin operations re-check the signed-in user's database role inside restricted functions. Hiding the Admin navigation is only a usability detail, not the security boundary.
@@ -25,6 +25,8 @@ ClipFarm is an authenticated multi-user application. Vercel serves the Vite dash
 | `admin_user_stats` | Security-invoker aggregate visible only when `private.is_admin()` succeeds |
 
 The executable source of truth is in `supabase/migrations/`. New projects should apply those migrations in timestamp order.
+
+This describes the checked-in schema, not a verified export of the latest hosted database. See [source completeness](SOURCE_STATUS.md) for missing follow-up features and migration recovery requirements.
 
 ## Seven-day cycle
 

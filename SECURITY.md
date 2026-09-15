@@ -1,7 +1,7 @@
 # Security notes
 
 - Store `GEMINI_API_KEY` only as a GitHub Actions repository secret.
-- Store one fine-grained GitHub token in Supabase Edge Function secrets, limited to this repository with only **Actions: read and write**.
+- Store one fine-grained GitHub token in Supabase Edge Function secrets, limited to the private processing repository with only **Actions: read and write**.
 - Never expose that token in the dashboard. Members authenticate only with Supabase and do not need GitHub accounts.
 - Never paste a token into an issue, commit, workflow input, Actions log, or shared document.
 - This repository may be public for portfolio review. Real campaign processing must run in a private repository: logs, summaries, workflow inputs, and artifacts can contain personal or commercial information. The processing job checks repository visibility before it starts.
