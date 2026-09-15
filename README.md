@@ -1,6 +1,34 @@
 # ClipFarm
 
-ClipFarm turns a long-form episode and a structured Whop campaign brief into ranked, vertical, captioned clips. Members sign in, submit campaigns, follow their own run history, download results, and submit weekly earnings screenshots. Administrators get a separate team-activity, screenshot-review, commission, and payment view.
+**An authenticated workspace for turning long-form video into campaign-ready clips.**
+
+[![Validate repository](https://github.com/akram0i/clip-farm/actions/workflows/validate.yml/badge.svg)](https://github.com/akram0i/clip-farm/actions/workflows/validate.yml)
+
+ClipFarm combines a multi-user dashboard, a PostgreSQL data model, and a staged video-processing worker. Members submit campaign requirements and follow their own runs. Administrators review earnings evidence and track commissions. The pipeline downloads source video, transcribes speech locally, selects candidate moments, validates campaign constraints, and renders vertical clips with captions.
+
+**Stack:** JavaScript · TypeScript · Python · Vite · Supabase · PostgreSQL · Whisper · Gemini · FFmpeg · GitHub Actions
+
+### Start here
+
+- [Architecture and authorization](architecture/SUPABASE_BACKEND.md): data ownership, row-level policies, and server-side operations.
+- [Engineering walkthrough](architecture/ENGINEERING.md): design decisions, verification, and known limitations.
+- [Security and privacy](SECURITY.md): secret handling and the boundary between a public portfolio and a private worker.
+- [Setup](#one-time-setup): configure your own services without committing credentials.
+
+This repository is a source-code portfolio. It does not include production accounts, sample passwords, private earnings screenshots, or access to the deployed team's workspace. Features below describe the code in this repository; they are not a claim that every external service is currently configured or that every source-video provider is supported.
+
+```mermaid
+flowchart LR
+    A[Member dashboard] --> B[Supabase Auth]
+    A --> C[PostgreSQL with row-level access]
+    A --> D[Authorized Edge Functions]
+    D --> E[Private processing worker]
+    E --> F[Download and Whisper transcription]
+    F --> G[Gemini selection and constraint checks]
+    G --> H[FFmpeg rendering]
+    H --> I[Signed status callback]
+    I --> C
+```
 
 The current architecture is fully separated:
 
@@ -31,7 +59,7 @@ clipfarm/
 - Immediate same-session unlock on successful upload; admin review is intentionally asynchronous.
 - Admin-entered confirmed earnings, snapshotted commission rates, owed totals, and append-only payments.
 - Central server-side GitHub dispatch and result-download functions. No member sees or supplies GitHub settings.
-- The complete unattended video pipeline and signed status callbacks.
+- A staged video pipeline and signed status callbacks; execution requires configured services and accessible source media.
 - Deterministic checks for clip duration, required hashtags/messaging, source bounds, and caption provenance.
 
 See [the Supabase architecture](architecture/SUPABASE_BACKEND.md) for the security and data model.
@@ -48,9 +76,11 @@ See [the Supabase architecture](architecture/SUPABASE_BACKEND.md) for the securi
 
 ## One-time setup
 
-### 1. Create the public GitHub repository
+### 1. Configure a processing repository
 
-Push this entire directory. The hidden `.github/workflows/` directory is required. Keep the repository public if free public-repository Actions usage is a hard requirement.
+Keep this public repository for source review. Use a **private repository** for real team processing: Actions logs, summaries, and artifacts can contain campaign requirements, source URLs, transcript excerpts, and participant information. The processing workflow is restricted to private repositories. Free-tier compute is a separate constraint; do not trade away private data to obtain public-runner minutes.
+
+Copy the code to that private repository, including `.github/workflows/`, and point the backend's `GITHUB_OWNER` and `GITHUB_REPO` settings at it.
 
 Add these repository secrets under **Settings → Secrets and variables → Actions**:
 
@@ -104,7 +134,7 @@ All other signups remain members. If open signup is not appropriate for the team
 From `dashboard/`:
 
 ```bash
-npm install
+npm ci
 npm test
 npm run build
 vercel link

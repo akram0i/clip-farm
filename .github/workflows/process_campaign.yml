@@ -1,5 +1,5 @@
 name: Process campaign
-run-name: ClipFarm · ${{ fromJSON(inputs.campaign_json).campaign_name }} · ${{ fromJSON(inputs.campaign_json).requested_by || github.actor }}
+run-name: ClipFarm processing
 
 on:
   workflow_dispatch:
@@ -19,6 +19,9 @@ concurrency:
 jobs:
   process:
     name: Build clips
+    # Campaign inputs, summaries and artifacts can contain personal information.
+    # The public portfolio is for source review; real work runs in a private copy.
+    if: ${{ github.event.repository.private == true }}
     runs-on: ubuntu-latest
     timeout-minutes: 300
     env:
