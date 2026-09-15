@@ -199,6 +199,7 @@ Confirmed earnings should be the new earnings for that screenshot's reporting in
 
 | Symptom | Check |
 |---|---|
+| Failed to fetch / backend cannot be reached | Check the configured Supabase URL and network first. If the project is paused, resume the existing project in Supabase; pushing GitHub code alone cannot reactivate it |
 | Sign-in works but no profile loads | Confirm the `on_auth_user_created` trigger and migration history |
 | Member sees no rows before day seven | Check RLS grants, `earnings_cycle_started_at`, and `get_access_status()` |
 | Campaign becomes failed at dispatch | Configure the five Edge Function GitHub/callback secrets |

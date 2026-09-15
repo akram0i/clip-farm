@@ -23,7 +23,9 @@ The Team overview's existing pending/completed columns describe **campaign proce
 
 Deployed Edge Function source was recovered for registration, account removal, campaign dispatch, callbacks, and downloads. Recovered files are being held outside the deployable source tree until their dependencies are verified. Copying individual functions into this repository would not reproduce the latest application and could produce a broken setup.
 
-At the recovery check, the database project was inactive and the available hosting account did not provide access to the dashboard's owning project. No production account data, invitation codes, passwords, or service credentials belong in this repository or its test fixtures.
+At the initial recovery check, the database project was inactive. It was resumed on September 15; database connectivity and the Auth health endpoint were verified afterward. The available hosting account still did not provide access to the dashboard's owning project, so the latest frontend has not been recovered or redeployed. No production account data, invitation codes, passwords, or service credentials belong in this repository or its test fixtures.
+
+The checked-in frontend now defers database work until after Auth callbacks release their lock, displays actionable network-error messages, and offers a retry when workspace initialization fails. This improves recovery behavior; it cannot itself resume a paused backend. Full real-account sign-in and deployment parity remain separate verification steps.
 
 ## Completion criteria
 

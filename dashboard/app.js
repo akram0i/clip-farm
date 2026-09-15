@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { errorMessage } from "./errors.js";
 import { cycleLabel, extensionForMime, formatMoney, initials, summarizeRuns, validateScreenshot } from "./logic.js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -76,6 +77,7 @@ function showAuth() {
   elements.appView.hidden = true;
   session = null;
   access = null;
+  byId("retryConnection").hidden = true;
 }
 
 function setAuthMode(mode) {
@@ -119,7 +121,7 @@ async function handleAuthSubmit(event) {
       if (error) throw error;
     }
   } catch (error) {
-    setMessage(elements.authMessage, error.message || "Authentication failed.", "error");
+    setMessage(elements.authMessage, errorMessage(error, "Authentication failed."), "error");
   } finally {
     setLoading(elements.authSubmit, false, "");
   }
@@ -141,11 +143,16 @@ async function loadAccess() {
 }
 
 async function enterApp(nextSession) {
+  clearInterval(refreshTimer);
   session = nextSession;
-  elements.authView.hidden = true;
-  elements.appView.hidden = false;
+  access = null;
+  elements.appView.hidden = true;
   try {
     await loadAccess();
+    if (session !== nextSession) return;
+    elements.authView.hidden = true;
+    elements.appView.hidden = false;
+    byId("retryConnection").hidden = true;
     if (access.is_locked && access.role !== "admin") {
       showLockedView();
     } else {
@@ -159,7 +166,12 @@ async function enterApp(nextSession) {
       if (!document.hidden && access && !access.is_locked) loadMemberData().catch(() => {});
     }, 20000);
   } catch (error) {
-    showToast(error.message || "Could not load the workspace.");
+    if (session !== nextSession) return;
+    elements.appView.hidden = true;
+    elements.authView.hidden = false;
+    access = null;
+    byId("retryConnection").hidden = false;
+    setMessage(elements.authMessage, errorMessage(error, "Could not load the workspace. Please retry."), "error");
   }
 }
 
@@ -214,7 +226,7 @@ async function handleCampaignSubmit(event) {
     });
     await loadMemberData();
   } catch (error) {
-    setMessage(elements.campaignMessage, error.message || "Could not start the campaign.", "error");
+    setMessage(elements.campaignMessage, errorMessage(error, "Could not start the campaign."), "error");
   } finally {
     setLoading(elements.campaignSubmit, false, "");
   }
@@ -280,7 +292,7 @@ async function handleRunDownload(event) {
     if (!data?.download_url) throw new Error(data?.error || "The result download is unavailable.");
     window.location.assign(data.download_url);
   } catch (error) {
-    showToast(error.message || "Could not prepare the result download.");
+    showToast(errorMessage(error, "Could not prepare the result download."));
   } finally {
     button.disabled = false;
     button.textContent = original;
@@ -310,7 +322,7 @@ async function uploadScreenshot(file, messageElement, button) {
     setMessage(elements.lockMessage);
     showToast("Access restored immediately. Your screenshot is awaiting admin review.");
   } catch (error) {
-    setMessage(messageElement, error.message || "Screenshot upload failed.", "error");
+    setMessage(messageElement, errorMessage(error, "Screenshot upload failed."), "error");
   } finally {
     setLoading(button, false, "");
   }
@@ -390,7 +402,7 @@ async function handleAdminTableClick(event) {
     }
     await loadAdminData();
   } catch (error) {
-    showToast(error.message || "Admin update failed.");
+    showToast(errorMessage(error, "Admin update failed."));
   } finally {
     button.disabled = false;
   }
@@ -419,19 +431,28 @@ async function handleReviewClick(event) {
     showToast("Screenshot reviewed and commission calculated.");
     await loadAdminData();
   } catch (error) {
-    showToast(error.message || "Could not review the submission.");
+    showToast(errorMessage(error, "Could not review the submission."));
   } finally {
     button.disabled = false;
   }
 }
 
 elements.authForm.addEventListener("submit", handleAuthSubmit);
+byId("retryConnection").addEventListener("click", async () => {
+  const button = byId("retryConnection");
+  button.disabled = true;
+  try {
+    if (session) await enterApp(session);
+  } finally {
+    button.disabled = false;
+  }
+});
 elements.authModeToggle.addEventListener("click", () => setAuthMode(authMode === "signin" ? "signup" : "signin"));
 elements.signOutButton.addEventListener("click", () => supabase?.auth.signOut());
 elements.campaignForm.addEventListener("submit", handleCampaignSubmit);
-elements.refreshRuns.addEventListener("click", () => loadMemberData().catch((error) => showToast(error.message)));
+elements.refreshRuns.addEventListener("click", () => loadMemberData().catch((error) => showToast(errorMessage(error))));
 elements.runList.addEventListener("click", handleRunDownload);
-elements.refreshAdmin.addEventListener("click", () => loadAdminData().catch((error) => showToast(error.message)));
+elements.refreshAdmin.addEventListener("click", () => loadAdminData().catch((error) => showToast(errorMessage(error))));
 elements.adminUserRows.addEventListener("click", handleAdminTableClick);
 elements.reviewQueue.addEventListener("click", handleReviewClick);
 elements.earningsForm.addEventListener("submit", (event) => {
@@ -446,7 +467,7 @@ elements.earningsFile.addEventListener("change", () => { elements.earningsFileLa
 elements.lockFile.addEventListener("change", () => { elements.lockFileLabel.textContent = elements.lockFile.files[0]?.name || "Choose earnings screenshot"; });
 document.querySelectorAll(".nav-link").forEach((button) => button.addEventListener("click", async () => {
   showWorkspace(button.dataset.view);
-  if (button.dataset.view === "admin") await loadAdminData().catch((error) => showToast(error.message));
+  if (button.dataset.view === "admin") await loadAdminData().catch((error) => showToast(errorMessage(error)));
 }));
 elements.reminderUpload.addEventListener("click", (event) => {
   event.preventDefault();
@@ -460,10 +481,10 @@ if (!supabase) {
   elements.authSubmit.disabled = true;
 } else {
   supabase.auth.onAuthStateChange((_event, nextSession) => {
-    if (nextSession) enterApp(nextSession);
-    else showAuth();
+    // Run authenticated queries after the auth callback releases its lock.
+    setTimeout(() => {
+      if (nextSession) enterApp(nextSession);
+      else showAuth();
+    }, 0);
   });
-  const { data } = await supabase.auth.getSession();
-  if (data.session) await enterApp(data.session);
-  else showAuth();
 }
